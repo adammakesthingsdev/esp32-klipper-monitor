@@ -18,6 +18,7 @@ In no particular order:
 |Full configuration through json|:x:|
 |ePaper support|:x:|
 |Web UI/config GUI|:x:|
+|Design physical case|:x:|
 
 ## License / legal mumbo jumbo
 In the off chance you want to replicate this project, everything is of course open source. As of writing, I have not placed an official license on anything here, so I will unofficially ask that if you redistribute/modify/use/sell any part of this code that you credit me.

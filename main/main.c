@@ -24,7 +24,7 @@ static EventGroupHandle_t s_wifi_event_group;
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT      BIT1
 
-static const char *TAG = "Klipper API";
+static const char *TAG = "MAIN";
 
 static int s_retry_num = 0;
 
@@ -60,11 +60,39 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
     }
 }
 
+void wifi_init_sta(void)
+{
+    s_wifi_event_group = xEventGroupCreate(); //creates event group and returns handle 
+
+    ESP_ERROR_CHECK(esp_netif_init()); //checks if tcp/ip stack is init correctly
+    ESP_ERROR_CHECK(esp_event_loop_create_default()); //checks if event loop created 
+    esp_netif_create_default_wifi_sta(); //creates esp_netif object and returns pointer
+
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT(); //creates default wifi config based on config file
+    ESP_ERROR_CHECK(esp_wifi_init(&cfg)); //starts wifi task and checks for errors
+
+    esp_event_handler_instance_t instance_any_id; //event handler for any event (?)
+    esp_event_handler_instance_t instance_got_ip; //event handler for ip
+
+    ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT,
+                                                        ESP_EVENT_ANY_ID,
+                                                        &event_handler,
+                                                        NULL,
+                                                        &instance_any_id));
+    ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT,
+                                                        IP_EVENT_STA_GOT_IP,
+                                                        &event_handler,
+                                                        NULL,
+                                                        &instance_got_ip));
+
+
+
+}
+
 void app_main(void)
 {
-    ESP_LOGD(TAG, "Hello world! :3");
-    ESP_LOGD(TAG, "Set settings:\nSSID: %s \nPassword: %s",WIFI_SSID,WIFI_PASS);
-    ESP_LOGD(TAG, "Hello world! :3");
+    ESP_LOGI(TAG, "Hello world! :3");
+    ESP_LOGI(TAG, "Set settings:\nSSID: %s \nPassword: %s",WIFI_SSID,WIFI_PASS);
     printf("\nExiting!");
 
 }

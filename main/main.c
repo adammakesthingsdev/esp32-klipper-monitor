@@ -16,7 +16,8 @@
 #include "lwip/err.h"
 #include "lwip/sys.h"
 
-#define WIFI_SSID      CONFIG_ESP_WIFI_SSID
+//#define WIFI_SSID      CONFIG_ESP_WIFI_SSID
+#define WIFI_SSID "adamnet"
 #define WIFI_PASS      CONFIG_ESP_WIFI_PASSWORD
 #define MAX_RETRY  CONFIG_ESP_MAXIMUM_RETRY
 
@@ -61,6 +62,7 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
         ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
         s_retry_num = 0;
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+        ESP_LOGI(TAG,":))))))))))))))");
     }
 }
 
@@ -92,8 +94,12 @@ void wifi_init_sta(void)
     wifi_config_t wifi_config = { //constructor for wifi configuration
         .sta = {
             .ssid = WIFI_SSID,
-            .password = WIFI_PASS,
-            .threshold.authmode =  WIFI_AUTH_WEP,
+            .scan_method=WIFI_FAST_SCAN,
+            //.password = WIFI_PASS,
+            .threshold.authmode =  WIFI_AUTH_OPEN,
+            //.sae_pwe_h2e = wifi_sae_pwe_method_t(WPA3_SAE_PWE_BOTH),
+            .failure_retry_cnt=5,
+            .sae_h2e_identifier = "",
         },
     };
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA) ); //set to station mode
@@ -102,12 +108,13 @@ void wifi_init_sta(void)
 
     ESP_LOGI(TAG, "wifi_init_sta finished."); //:DDDD
 
+
     EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group,
             WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
             pdFALSE,
             pdFALSE,
             portMAX_DELAY);
-
+    ESP_LOGI(TAG,"finished waiting");
     if (bits & WIFI_CONNECTED_BIT) {
         ESP_LOGI(TAG, "connected to ap SSID:%s password:%s",
                  WIFI_SSID, WIFI_PASS);

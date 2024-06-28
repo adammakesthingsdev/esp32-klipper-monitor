@@ -1,32 +1,23 @@
-# _Sample project_
+# ESP32 Klipper Monitor
 
-(See the README.md file in the upper level 'examples' directory for more information about examples.)
-
-This is the simplest buildable example. The example is used by command `idf.py create-project`
-that copies the project to user specified path and set it's name. For more information follow the [docs page](https://docs.espressif.com/projects/esp-idf/en/latest/api-guides/build-system.html#start-a-new-project)
+This project will eventually become a monitor for any printer (or printers) running Klipper. The goal interface is a simple ESP32 with a screen/interface similar to KlipperScreen's (but scaled down) that initially prompts to be connected to a computer like a USB drive, where the end user can configure settings in a config.json file, things like wifi info, ip of the target printer, Moonraker port, etc. After this initial step, the device will then be able to display all relevant information on its screen in some kind of graphical way.
 
 
+## Hardware
+The primary hardware used for this project will be an ESP32-based development board, eventually switched to a PCB. Also necessary is a ST7789/ST7735 LCD (hopefully multiple supported screens!) and power source, either a USB cable or charging LiPo. Wiring details to come, as I haven't yet connected mine. 
+If you're trying to follow along exactly what I do, I'm using an ESP-WROOM-32 USB-C devkit (unbranded) and ST7789 240*280 LCD breakout with rounded corners.
 
-## How to use example
-We encourage the users to use the example as a template for the new projects.
-A recommended way is to follow the instructions on a [docs page](https://docs.espressif.com/projects/esp-idf/en/latest/api-guides/build-system.html#start-a-new-project).
+## Planned features list / to do
+In no particular order:
+|Feature/element|Status|
+|:---------------------------------|:----:|
+|API connection|:x:|
+|USB thumb drive capabilities|:x:|
+|LVGL implementation basics|:x:|
+|Multiple screens/dynamic UI|:x:|
+|Full configuration through json|:x:|
+|ePaper support|:x:|
+|Web UI/config GUI|:x:|
 
-## Example folder contents
-
-The project **sample_project** contains one source file in C language [main.c](main/main.c). The file is located in folder [main](main).
-
-ESP-IDF projects are built using CMake. The project build configuration is contained in `CMakeLists.txt`
-files that provide set of directives and instructions describing the project's source files and targets
-(executable, library, or both). 
-
-Below is short explanation of remaining files in the project folder.
-
-```
-├── CMakeLists.txt
-├── main
-│   ├── CMakeLists.txt
-│   └── main.c
-└── README.md                  This is the file you are currently reading
-```
-Additionally, the sample project contains Makefile and component.mk files, used for the legacy Make based build system. 
-They are not used or needed when building with CMake and idf.py.
+## License / legal mumbo jumbo
+In the off chance you want to replicate this project, everything is of course open source. As of writing, I have not placed an official license on anything here, so I will unofficially ask that if you redistribute/modify/use/sell any part of this code that you credit me.

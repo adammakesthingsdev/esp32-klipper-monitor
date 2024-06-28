@@ -16,8 +16,7 @@
 #include "lwip/err.h"
 #include "lwip/sys.h"
 
-//#define WIFI_SSID      CONFIG_ESP_WIFI_SSID
-#define WIFI_SSID "adamnet"
+#define WIFI_SSID      CONFIG_ESP_WIFI_SSID
 #define WIFI_PASS      CONFIG_ESP_WIFI_PASSWORD
 #define MAX_RETRY  CONFIG_ESP_MAXIMUM_RETRY
 
@@ -35,8 +34,12 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) 
     {
         ESP_LOGI(TAG,"Attempting to connect...");
-        esp_wifi_connect();
+        //esp_wifi_connect();
     } 
+    else if (event_base==WIFI_EVENT&& event_id==WIFI_EVENT_STA_CONNECTED)
+    {
+        ESP_LOGI(TAG,"CONNECTED WOOOO");
+    }
     else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) 
     {
         wifi_event_sta_disconnected_t* event = (wifi_event_sta_disconnected_t*) event_data;
@@ -70,41 +73,37 @@ void wifi_init_sta(void)
 {
     s_wifi_event_group = xEventGroupCreate(); //creates event group and returns handle 
 
-    ESP_ERROR_CHECK(esp_netif_init()); //checks if tcp/ip stack is init correctly
-    ESP_ERROR_CHECK(esp_event_loop_create_default()); //checks if event loop created 
+    esp_netif_init(); //checks if tcp/ip stack is init correctly
+    esp_event_loop_create_default(); //checks if event loop created 
     esp_netif_create_default_wifi_sta(); //creates esp_netif object and returns pointer
 
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT(); //creates default wifi config based on config file
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg)); //starts wifi task and checks for errors
+    esp_wifi_init(&cfg); //starts wifi task and checks for errors
 
     esp_event_handler_instance_t instance_any_id; //event handler for any event (?)
     esp_event_handler_instance_t instance_got_ip; //event handler for ip
 
-    ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT,
-                                                        ESP_EVENT_ANY_ID,
-                                                        &event_handler,
-                                                        NULL,
-                                                        &instance_any_id));
-    ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT,
-                                                        IP_EVENT_STA_GOT_IP,
-                                                        &event_handler,
-                                                        NULL,
-                                                        &instance_got_ip));
+    esp_event_handler_instance_register(WIFI_EVENT,
+                                                ESP_EVENT_ANY_ID,
+                                                &event_handler,
+                                                NULL,
+                                                &instance_any_id);
+    esp_event_handler_instance_register(IP_EVENT,
+                                                IP_EVENT_STA_GOT_IP,
+                                                &event_handler,
+                                                NULL,
+                                                &instance_got_ip);
 
     wifi_config_t wifi_config = { //constructor for wifi configuration
         .sta = {
             .ssid = WIFI_SSID,
-            .scan_method=WIFI_FAST_SCAN,
-            //.password = WIFI_PASS,
-            .threshold.authmode =  WIFI_AUTH_OPEN,
-            //.sae_pwe_h2e = wifi_sae_pwe_method_t(WPA3_SAE_PWE_BOTH),
-            .failure_retry_cnt=5,
-            .sae_h2e_identifier = "",
+            .password = WIFI_PASS,
         },
     };
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA) ); //set to station mode
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config) ); //configure sta with previous config
-    ESP_ERROR_CHECK(esp_wifi_start() ); //start wifi with configuration
+    esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
+    esp_wifi_start();
+    esp_wifi_set_mode(WIFI_MODE_STA);
+    esp_wifi_connect();
 
     ESP_LOGI(TAG, "wifi_init_sta finished."); //:DDDD
 

@@ -38,11 +38,13 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
     } 
     else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) 
     {
+        wifi_event_sta_disconnected_t* event = (wifi_event_sta_disconnected_t*) event_data;
+        ESP_LOGI(TAG,"Something failed. Reason: %d, SSID: %s, RSSI: %d",event->reason,event->ssid,event->rssi);
         if (s_retry_num < MAX_RETRY) 
         {
             esp_wifi_connect();
             s_retry_num++;
-            ESP_LOGD(TAG, "retry to connect to the AP");
+            ESP_LOGI(TAG, "retry to connect to the AP");
         } 
         
         else 
@@ -91,6 +93,7 @@ void wifi_init_sta(void)
         .sta = {
             .ssid = WIFI_SSID,
             .password = WIFI_PASS,
+            .threshold.authmode =  WIFI_AUTH_WEP,
         },
     };
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA) ); //set to station mode
@@ -137,5 +140,6 @@ void app_main(void)
     ESP_LOGI(TAG, "Set settings:\nSSID: %s \nPassword: %s",WIFI_SSID,WIFI_PASS);
     wifi_runner();
     printf("\nExiting!");
+    esp_wifi_disconnect();
 
 }

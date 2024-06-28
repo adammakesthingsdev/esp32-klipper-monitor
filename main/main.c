@@ -146,6 +146,4 @@ void app_main(void)
     ESP_LOGI(TAG, "Set settings:\nSSID: %s \nPassword: %s",WIFI_SSID,WIFI_PASS);
     wifi_runner();
     printf("\nExiting!");
-    esp_wifi_disconnect();
-
 }

@@ -8,123 +8,20 @@
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
 #include "esp_system.h"
-#include "esp_wifi.h"
 #include "esp_event.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
+#include "esp_http_client.h"
+#include "esp_tls.h"
+#include "esp_netif.h"
 
 #include "lwip/err.h"
 #include "lwip/sys.h"
 
-#define WIFI_SSID      CONFIG_ESP_WIFI_SSID
-#define WIFI_PASS      CONFIG_ESP_WIFI_PASSWORD
-#define MAX_RETRY  CONFIG_ESP_MAXIMUM_RETRY
+#include "staconnection.h"
 
-static EventGroupHandle_t s_wifi_event_group;
-
-#define WIFI_CONNECTED_BIT BIT0
-#define WIFI_FAIL_BIT      BIT1
 
 static const char *TAG = "MAIN";
-
-static int s_retry_num = 0;
-
-static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
-{
-    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) 
-    {
-        ESP_LOGI(TAG,"Attempting to connect...");
-        //esp_wifi_connect();
-    } 
-    else if (event_base==WIFI_EVENT&& event_id==WIFI_EVENT_STA_CONNECTED)
-    {
-        ESP_LOGI(TAG,"CONNECTED WOOOO");
-    }
-    else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) 
-    {
-        wifi_event_sta_disconnected_t* event = (wifi_event_sta_disconnected_t*) event_data;
-        ESP_LOGI(TAG,"Something failed. Reason: %d, SSID: %s, RSSI: %d",event->reason,event->ssid,event->rssi);
-        if (s_retry_num < MAX_RETRY) 
-        {
-            esp_wifi_connect();
-            s_retry_num++;
-            ESP_LOGI(TAG, "retry to connect to the AP");
-        } 
-        
-        else 
-        {
-            xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
-        }
-
-        ESP_LOGI(TAG,"connect to the AP fail");
-    } 
-
-    else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) 
-    {
-        ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
-        ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
-        s_retry_num = 0;
-        xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
-        ESP_LOGI(TAG,":))))))))))))))");
-    }
-}
-
-void wifi_init_sta(void)
-{
-    s_wifi_event_group = xEventGroupCreate(); //creates event group and returns handle 
-
-    esp_netif_init(); //checks if tcp/ip stack is init correctly
-    esp_event_loop_create_default(); //checks if event loop created 
-    esp_netif_create_default_wifi_sta(); //creates esp_netif object and returns pointer
-
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT(); //creates default wifi config based on config file
-    esp_wifi_init(&cfg); //starts wifi task and checks for errors
-
-    esp_event_handler_instance_t instance_any_id; //event handler for any event (?)
-    esp_event_handler_instance_t instance_got_ip; //event handler for ip
-
-    esp_event_handler_instance_register(WIFI_EVENT,
-                                                ESP_EVENT_ANY_ID,
-                                                &event_handler,
-                                                NULL,
-                                                &instance_any_id);
-    esp_event_handler_instance_register(IP_EVENT,
-                                                IP_EVENT_STA_GOT_IP,
-                                                &event_handler,
-                                                NULL,
-                                                &instance_got_ip);
-
-    wifi_config_t wifi_config = { //constructor for wifi configuration
-        .sta = {
-            .ssid = WIFI_SSID,
-            .password = WIFI_PASS,
-        },
-    };
-    esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
-    esp_wifi_start();
-    esp_wifi_set_mode(WIFI_MODE_STA);
-    esp_wifi_connect();
-
-    ESP_LOGI(TAG, "wifi_init_sta finished."); //:DDDD
-
-
-    EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group,
-            WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
-            pdFALSE,
-            pdFALSE,
-            portMAX_DELAY);
-    ESP_LOGI(TAG,"finished waiting");
-    if (bits & WIFI_CONNECTED_BIT) {
-        ESP_LOGI(TAG, "connected to ap SSID:%s password:%s",
-                 WIFI_SSID, WIFI_PASS);
-    } else if (bits & WIFI_FAIL_BIT) {
-        ESP_LOGI(TAG, "Failed to connect to SSID:%s, password:%s",
-                 WIFI_SSID, WIFI_PASS);
-    } else {
-        ESP_LOGE(TAG, "UNEXPECTED EVENT");
-    }
-
-}
 
 void wifi_runner(void)
 {
@@ -138,12 +35,112 @@ void wifi_runner(void)
     ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
     wifi_init_sta();
 }
+esp_err_t _http_event_handler(esp_http_client_event_t *evt)
+{
+    static char *output_buffer;  // Buffer to store response of http request from event handler
+    static int output_len;       // Stores number of bytes read
+    switch(evt->event_id) {
+        case HTTP_EVENT_ERROR:
+            ESP_LOGD(TAG, "HTTP_EVENT_ERROR");
+            break;
+        case HTTP_EVENT_ON_CONNECTED:
+            ESP_LOGD(TAG, "HTTP_EVENT_ON_CONNECTED");
+            break;
+        case HTTP_EVENT_HEADER_SENT:
+            ESP_LOGD(TAG, "HTTP_EVENT_HEADER_SENT");
+            break;
+        case HTTP_EVENT_ON_HEADER:
+            ESP_LOGD(TAG, "HTTP_EVENT_ON_HEADER, key=%s, value=%s", evt->header_key, evt->header_value);
+            break;
+        case HTTP_EVENT_ON_DATA:
+            ESP_LOGD(TAG, "HTTP_EVENT_ON_DATA, len=%d", evt->data_len);
+            /*
+             *  Check for chunked encoding is added as the URL for chunked encoding used in this example returns binary data.
+             *  However, event handler can also be used in case chunked encoding is used.
+             */
+            if (!esp_http_client_is_chunked_response(evt->client)) {
+                // If user_data buffer is configured, copy the response into the buffer
+                if (evt->user_data) {
+                    memcpy(evt->user_data + output_len, evt->data, evt->data_len);
+                } else {
+                    if (output_buffer == NULL) {
+                        output_buffer = (char *) malloc(esp_http_client_get_content_length(evt->client));
+                        output_len = 0;
+                        if (output_buffer == NULL) {
+                            ESP_LOGE(TAG, "Failed to allocate memory for output buffer");
+                            return ESP_FAIL;
+                        }
+                    }
+                    memcpy(output_buffer + output_len, evt->data, evt->data_len);
+                }
+                output_len += evt->data_len;
+            }
+
+            break;
+        case HTTP_EVENT_ON_FINISH:
+            ESP_LOGD(TAG, "HTTP_EVENT_ON_FINISH");
+            if (output_buffer != NULL) {
+                // Response is accumulated in output_buffer. Uncomment the below line to print the accumulated response
+                // ESP_LOG_BUFFER_HEX(TAG, output_buffer, output_len);
+                free(output_buffer);
+                output_buffer = NULL;
+            }
+            output_len = 0;
+            break;
+        case HTTP_EVENT_DISCONNECTED:
+            ESP_LOGI(TAG, "HTTP_EVENT_DISCONNECTED");
+            int mbedtls_err = 0;
+            esp_err_t err = esp_tls_get_and_clear_last_error(evt->data, &mbedtls_err, NULL);
+            if (err != 0) {
+                if (output_buffer != NULL) {
+                    free(output_buffer);
+                    output_buffer = NULL;
+                }
+                output_len = 0;
+                ESP_LOGI(TAG, "Last esp error code: 0x%x", err);
+                ESP_LOGI(TAG, "Last mbedtls failure: 0x%x", mbedtls_err);
+            }
+            break;
+        case HTTP_EVENT_REDIRECT:
+            ESP_LOGI(TAG,"uh ohes");
+            break;
+    }
+    return ESP_OK;
+}
+
+static void http_rest_with_url(void)
+{
+    char local_response_buffer[2048] = {0};
+    esp_http_client_config_t config = {
+        .host = "192.168.9.199",
+        .path = "/api/printer",
+        .port = 7125,
+        .event_handler = _http_event_handler,
+        .user_data = local_response_buffer,        // Pass address of local buffer to get response
+        .disable_auto_redirect = true,
+    };
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+
+    // GET
+    esp_err_t err = esp_http_client_perform(client);
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "HTTP GET Status = %d, content_length = %d",
+                esp_http_client_get_status_code(client),
+                (int)esp_http_client_get_content_length(client));
+    } else {
+        ESP_LOGE(TAG, "HTTP GET request failed: %s", esp_err_to_name(err));
+    }
+    ESP_LOG_BUFFER_HEX(TAG, local_response_buffer, strlen(local_response_buffer));
+
+    esp_http_client_cleanup(client);
+}
 
 
 void app_main(void)
 {
     ESP_LOGI(TAG, "Hello world! :3");
-    ESP_LOGI(TAG, "Set settings:\nSSID: %s \nPassword: %s",WIFI_SSID,WIFI_PASS);
+    //ESP_LOGI(TAG, "Set settings:\nSSID: %s \nPassword: %s",WIFI_SSID,WIFI_PASS);
     wifi_runner();
+    http_rest_with_url();
     printf("\nExiting!");
 }

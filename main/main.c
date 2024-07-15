@@ -23,7 +23,7 @@
 
 static const char *TAG = "MAIN";
 
-void wifi_runner(void)
+int wifi_runner(void)
 {
     esp_err_t ret = nvs_flash_init(); //initialise flash
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
@@ -33,7 +33,7 @@ void wifi_runner(void)
     ESP_ERROR_CHECK(ret);
 
     ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
-    wifi_init_sta();
+    return( wifi_init_sta() );
 }
 esp_err_t _http_event_handler(esp_http_client_event_t *evt)
 {
@@ -140,7 +140,8 @@ void app_main(void)
 {
     ESP_LOGI(TAG, "Hello world! :3");
     //ESP_LOGI(TAG, "Set settings:\nSSID: %s \nPassword: %s",WIFI_SSID,WIFI_PASS);
-    wifi_runner();
-    http_rest_with_url();
+    int isCon = wifi_runner();
+    if(isCon){http_rest_with_url();}
+    else{ESP_LOGE(TAG,"Wifi configuration has failed, exciting.");}
     printf("\nExiting!");
 }

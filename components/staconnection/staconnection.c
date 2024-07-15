@@ -32,7 +32,9 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
         
         else 
         {
+            ESP_LOGE(TAG,"Could not connect, setting fail bit!");
             xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
+            ESP_LOGE(TAG,"Fail bit set!");
         }
 
         ESP_LOGI(TAG,"connect to the AP fail");
@@ -44,11 +46,11 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
         ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
         s_retry_num = 0;
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
-        ESP_LOGI(TAG,":))))))))))))))");
+        ESP_LOGI(TAG,":DDDD");
     }
 }
 
-void wifi_init_sta(void)
+int wifi_init_sta()
 {
     s_wifi_event_group = xEventGroupCreate(); //creates event group and returns handle 
 
@@ -96,11 +98,17 @@ void wifi_init_sta(void)
     if (bits & WIFI_CONNECTED_BIT) {
         ESP_LOGI(TAG, "connected to ap SSID:%s password:%s",
                  WIFI_SSID, WIFI_PASS);
+        return 1;
     } else if (bits & WIFI_FAIL_BIT) {
         ESP_LOGI(TAG, "Failed to connect to SSID:%s, password:%s",
                  WIFI_SSID, WIFI_PASS);
+        return 0;
     } else {
         ESP_LOGE(TAG, "UNEXPECTED EVENT");
+        return -1;
     }
+
+    ESP_LOGW(TAG,"Operation completed. Moving back into main program...");
+    return -1;
 
 }
